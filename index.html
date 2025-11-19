@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gestor de Inmuebles</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="logo-area">
+      <span class="logo-mark">GI</span>
+      <span class="logo-text">Gestor de Inmuebles</span>
+    </div>
+    <nav class="spa-nav">
+      <label class="spa-tab-label" for="tab-edificios">Inmuebles</label>
+      <label class="spa-tab-label" for="tab-unidades">Unidades</label>
+      <label class="spa-tab-label" for="tab-inquilinos">Inquilinos</label>
+      <label class="spa-tab-label" for="tab-recibos">Recibos</label>
+    </nav>
+  </header>
+
+  <!-- Radios ocultos para SPA -->
+  <input type="radio" name="spa-nav" id="tab-edificios" class="spa-tab-radio" checked>
+  <input type="radio" name="spa-nav" id="tab-unidades" class="spa-tab-radio">
+  <input type="radio" name="spa-nav" id="tab-inquilinos" class="spa-tab-radio">
+  <input type="radio" name="spa-nav" id="tab-recibos" class="spa-tab-radio">
+
+  <main class="spa-main">
+
+    <!-- PÁGINA: EDIFICIOS -->
+    <section class="page page-edificios">
+      <h1>Inmuebles</h1>
+
+      <!-- FORMULARIO: EDIFICIO / CASA -->
+      <section>
+        <h2>Registrar edificio / casa</h2>
+        <form id="building-form">
+          <label>
+            Nombre:
+            <input type="text" id="building-name" required />
+          </label>
+          <label>
+            Tipo:
+            <select id="building-type">
+              <option value="edificio">Edificio</option>
+              <option value="casa">Casa</option>
+            </select>
+          </label>
+          <label>
+            Dirección:
+            <input type="text" id="building-address" />
+          </label>
+          <button type="submit">Guardar inmueble</button>
+        </form>
+      </section>
+
+      <!-- LISTA DE EDIFICIOS -->
+      <section>
+        <h2>Listado de inmuebles</h2>
+        <p class="hint">Haz clic en un inmueble para trabajar sus unidades.</p>
+        <ul id="building-list" class="list"></ul>
+      </section>
+    </section>
+
+    <!-- PÁGINA: UNIDADES -->
+    <section class="page page-unidades">
+      <h1>Unidades</h1>
+
+      <section>
+        <h2>Unidades del inmueble seleccionado</h2>
+        <p>
+          Inmueble seleccionado:
+          <strong id="selected-building">Ninguno</strong>
+        </p>
+
+        <form id="unit-form">
+          <label>
+            Número / nombre de la unidad:
+            <input type="text" id="unit-name" required />
+          </label>
+          <label>
+            Tipo de unidad:
+            <select id="unit-type">
+              <option value="departamento">Departamento</option>
+              <option value="habitacion">Habitación</option>
+            </select>
+          </label>
+          <label>
+            Estado:
+            <select id="unit-status">
+              <option value="libre">Libre</option>
+              <option value="ocupado">Ocupado</option>
+            </select>
+          </label>
+          <button type="submit">Agregar unidad</button>
+        </form>
+
+        <h3>Listado de unidades</h3>
+        <p class="hint">Haz clic en una unidad para ver sus inquilinos y recibos.</p>
+        <ul id="unit-list" class="list"></ul>
+      </section>
+    </section>
+
+    <section class="page page-inquilinos">
+  <h1>Inquilinos</h1>
+
+  <section>
+    <h2>Inquilinos de la unidad seleccionada</h2>
+    <p>
+      Unidad seleccionada:
+      <strong id="selected-unit">Ninguna</strong>
+    </p>
+
+    <form id="tenant-form">
+      <label>
+        Nombre completo:
+        <input type="text" id="tenant-name" required />
+      </label>
+      <label>
+        Documento / DNI:
+        <input type="text" id="tenant-doc" />
+      </label>
+      <label>
+        Teléfono:
+        <input type="text" id="tenant-phone" />
+      </label>
+      <label>
+        Email:
+        <input type="email" id="tenant-email" />
+      </label>
+      <label>
+        Fecha inicio alquiler:
+        <input type="date" id="tenant-start-date" required />
+      </label>
+      <label>
+        Fecha fin contrato:
+        <input type="date" id="tenant-end-date" required />
+      </label>
+      <label>
+        Monto del alquiler:
+        <input type="number" id="tenant-rent" step="0.01" required />
+      </label>
+      <button type="submit">Agregar inquilino y generar contrato</button>
+    </form>
+
+    <h3>Listado de inquilinos</h3>
+    <p class="hint">Haz clic en un inquilino activo para ir a la generación de recibos.</p>
+    <ul id="tenant-list" class="list"></ul>
+  </section>
+</section>
+
+
+    <!-- PÁGINA: RECIBOS -->
+    <section class="page page-recibos">
+      <h1>Recibos</h1>
+
+      <section>
+        <h2>Generar recibos</h2>
+        <p>
+          Unidad actual:
+          <strong id="invoice-unit-label">Ninguna</strong><br />
+          Inquilino activo:
+          <strong id="invoice-tenant-label">Ninguno</strong>
+        </p>
+
+        <form id="invoice-form">
+          <div class="row">
+            <label>
+              Mes:
+              <select id="invoice-month">
+                <option value="01">Enero</option>
+                <option value="02">Febrero</option>
+                <option value="03">Marzo</option>
+                <option value="04">Abril</option>
+                <option value="05">Mayo</option>
+                <option value="06">Junio</option>
+                <option value="07">Julio</option>
+                <option value="08">Agosto</option>
+                <option value="09">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+              </select>
+            </label>
+            <label>
+              Año:
+              <select id="invoice-year"></select>
+            </label>
+          </div>
+
+          <div class="row">
+            <label>
+              Alquiler:
+              <input type="number" id="rent-amount" step="0.01" value="0" />
+            </label>
+            <label>
+              Luz:
+              <input type="number" id="electricity-amount" step="0.01" value="0" />
+            </label>
+            <label>
+              Agua:
+              <input type="number" id="water-amount" step="0.01" value="0" />
+            </label>
+            <label>
+              Otros:
+              <input type="number" id="other-amount" step="0.01" value="0" />
+            </label>
+          </div>
+
+          <label>
+            Estado de pago:
+            <select id="invoice-status">
+              <option value="pendiente">Pendiente</option>
+              <option value="pagado">Pagado</option>
+            </select>
+          </label>
+          <button type="submit">Generar recibo y PDF</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>Listado de recibos de la unidad</h2>
+        <ul id="invoice-list" class="list"></ul>
+      </section>
+    </section>
+
+  </main>
+
+  <!-- jsPDF para generar PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- Lógica principal -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
