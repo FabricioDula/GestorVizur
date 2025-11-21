@@ -33,6 +33,10 @@ const buildingNameInput = document.getElementById("building-name");
 const buildingTypeSelect = document.getElementById("building-type");
 const buildingAddressInput = document.getElementById("building-address");
 const buildingList = document.getElementById("building-list");
+const buildingWaterMeterInput = document.getElementById("building-water-meter");
+const buildingInternetCodeInput = document.getElementById("building-internet-code");
+const buildingInternetCompanyInput = document.getElementById("building-internet-company");
+const buildingGasCodeInput = document.getElementById("building-gas-code");
 
 // unidades
 const selectedBuildingLabel = document.getElementById("selected-building");
@@ -40,6 +44,7 @@ const unitForm = document.getElementById("unit-form");
 const unitNameInput = document.getElementById("unit-name");
 const unitTypeSelect = document.getElementById("unit-type");
 const unitStatusSelect = document.getElementById("unit-status");
+const unitElectricCodeInput = document.getElementById("unit-electric-code");
 const unitList = document.getElementById("unit-list");
 
 // inquilinos
@@ -52,14 +57,17 @@ const tenantEmailInput = document.getElementById("tenant-email");
 const tenantStartDateInput = document.getElementById("tenant-start-date");
 const tenantEndDateInput = document.getElementById("tenant-end-date");
 const tenantRentInput = document.getElementById("tenant-rent");
+const tenantNotesInput = document.getElementById("tenant-notes");
 const tenantList = document.getElementById("tenant-list");
 
 // recibos
 const invoiceForm = document.getElementById("invoice-form");
 const invoiceUnitLabel = document.getElementById("invoice-unit-label");
 const invoiceTenantLabel = document.getElementById("invoice-tenant-label");
+const invoiceDayInput = document.getElementById("invoice-day");
 const invoiceMonthInput = document.getElementById("invoice-month");
 const invoiceYearInput = document.getElementById("invoice-year");
+const invoiceNotesInput = document.getElementById("invoice-notes");
 const rentAmountInput = document.getElementById("rent-amount");
 const electricityAmountInput = document.getElementById("electricity-amount");
 const waterAmountInput = document.getElementById("water-amount");
@@ -78,7 +86,7 @@ let activeTenantName = null;
 
 // ===== UTILIDADES =====
 function setTenantFormEnabled(enabled) {
-  const elements = tenantForm.querySelectorAll("input, button");
+  const elements = tenantForm.querySelectorAll("input, button, textarea");
   elements.forEach((el) => {
     el.disabled = !enabled;
   });
@@ -90,11 +98,12 @@ function setTenantFormEnabled(enabled) {
     tenantStartDateInput.value = "";
     if (tenantEndDateInput) tenantEndDateInput.value = "";
     if (tenantRentInput) tenantRentInput.value = "";
+    if (tenantNotesInput) tenantNotesInput.value = "";
   }
 }
 
 function setInvoiceFormEnabled(enabled) {
-  const elements = invoiceForm.querySelectorAll("input, button, select");
+  const elements = invoiceForm.querySelectorAll("input, button, select, textarea");
   elements.forEach((el) => {
     el.disabled = !enabled;
   });
@@ -111,15 +120,14 @@ function initYearSelector() {
     if (y === currentYear) opt.selected = true;
     invoiceYearInput.appendChild(opt);
   }
-  // mes actual por defecto
   const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
-  invoiceMonthInput.value = currentMonth;
+  if (invoiceMonthInput) {
+    invoiceMonthInput.value = currentMonth;
+  }
 }
 
-// inicializar selects de fecha
 initYearSelector();
 
-// al inicio, sin unidad
 setTenantFormEnabled(false);
 setInvoiceFormEnabled(false);
 
@@ -133,16 +141,108 @@ async function cargarEdificios() {
     const data = docSnap.data();
 
     const li = document.createElement("li");
-    li.textContent = `${data.nombre} (${data.tipo}) - ${data.direccion || "Sin dirección"}`;
-    li.dataset.id = docSnap.id;
-    li.style.cursor = "pointer";
 
-    li.addEventListener("click", () => {
+    const codigoAguaTexto = data.codigoAgua ? ` - Agua: ${data.codigoAgua}` : "";
+    const codigoInternetTexto = data.codigoInternet ? ` - Internet: ${data.codigoInternet}` : "";
+    const codigoGasTexto = data.codigoGas ? ` - Gas: ${data.codigoGas}` : "";
+    const empresaInternetTexto = data.empresaInternet ? ` - Prov: ${data.empresaInternet}` : "";
+
+    const mainSpan = document.createElement("span");
+    mainSpan.textContent =
+      `${data.nombre} (${data.tipo}) - ${data.direccion || "Sin dirección"}` +
+      `${codigoAguaTexto}${codigoInternetTexto}${codigoGasTexto}${empresaInternetTexto}`;
+    mainSpan.style.cursor = "pointer";
+    mainSpan.addEventListener("click", () => {
       seleccionarEdificio(docSnap.id, data.nombre);
     });
+    li.appendChild(mainSpan);
+
+    // Botón "Personal" con icono
+    const staffBtn = document.createElement("button");
+    staffBtn.type = "button";
+    staffBtn.className = "btn btn-info btn-xs";
+    staffBtn.innerHTML = `
+      <span class="material-symbols-outlined">engineering</span>
+      <span class="btn-label">Personal</span>
+    `;
+    staffBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      seleccionarEdificioParaPersonal(docSnap.id, data.nombre);
+    });
+    li.appendChild(staffBtn);
+
+    // Botón "Editar servicios" con icono
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "btn btn-outline btn-xs";
+    editBtn.innerHTML = `
+      <span class="material-symbols-outlined">tune</span>
+      <span class="btn-label">Servicios</span>
+    `;
+    editBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await editarEdificioServicios(docSnap.id, data);
+    });
+    li.appendChild(editBtn);
 
     buildingList.appendChild(li);
   });
+}
+
+function seleccionarEdificioParaPersonal(id, nombre) {
+  selectedBuildingId = id;
+  selectedBuildingName = nombre;
+
+  if (selectedBuildingLabel) {
+    selectedBuildingLabel.textContent = nombre;
+  }
+
+  const staffBuildingLabel = document.getElementById("staff-building-label");
+  if (staffBuildingLabel) {
+    staffBuildingLabel.textContent = nombre;
+  }
+
+  const currentBuildingHidden = document.getElementById("current-building-id");
+  if (currentBuildingHidden) {
+    currentBuildingHidden.value = id;
+    currentBuildingHidden.dispatchEvent(new Event("change"));
+  }
+}
+
+async function editarEdificioServicios(id, dataActual) {
+  const nuevoCodigoAgua = prompt(
+    "Código medidor de agua:",
+    dataActual.codigoAgua || ""
+  );
+  if (nuevoCodigoAgua === null) return;
+
+  const nuevoCodigoInternet = prompt(
+    "Código internet (edificio):",
+    dataActual.codigoInternet || ""
+  );
+  if (nuevoCodigoInternet === null) return;
+
+  const nuevaEmpresaInternet = prompt(
+    "Empresa / proveedor de internet:",
+    dataActual.empresaInternet || ""
+  );
+  if (nuevaEmpresaInternet === null) return;
+
+  const nuevoCodigoGas = prompt(
+    "Código medidor de gas:",
+    dataActual.codigoGas || ""
+  );
+  if (nuevoCodigoGas === null) return;
+
+  const buildingRef = doc(db, "buildings", id);
+  await updateDoc(buildingRef, {
+    codigoAgua: nuevoCodigoAgua,
+    codigoInternet: nuevoCodigoInternet,
+    empresaInternet: nuevaEmpresaInternet,
+    codigoGas: nuevoCodigoGas
+  });
+
+  await cargarEdificios();
 }
 
 buildingForm.addEventListener("submit", async (e) => {
@@ -151,6 +251,18 @@ buildingForm.addEventListener("submit", async (e) => {
   const nombre = buildingNameInput.value.trim();
   const tipo = buildingTypeSelect.value;
   const direccion = buildingAddressInput.value.trim();
+  const codigoAgua = buildingWaterMeterInput
+    ? buildingWaterMeterInput.value.trim()
+    : "";
+  const codigoInternet = buildingInternetCodeInput
+    ? buildingInternetCodeInput.value.trim()
+    : "";
+  const empresaInternet = buildingInternetCompanyInput
+    ? buildingInternetCompanyInput.value.trim()
+    : "";
+  const codigoGas = buildingGasCodeInput
+    ? buildingGasCodeInput.value.trim()
+    : "";
 
   if (!nombre) return;
 
@@ -171,28 +283,38 @@ buildingForm.addEventListener("submit", async (e) => {
     nombreNormalizado,
     tipo,
     direccion,
+    codigoAgua,
+    codigoInternet,
+    empresaInternet,
+    codigoGas,
     creadoEn: new Date()
   });
 
   buildingNameInput.value = "";
   buildingAddressInput.value = "";
+  if (buildingWaterMeterInput) buildingWaterMeterInput.value = "";
+  if (buildingInternetCodeInput) buildingInternetCodeInput.value = "";
+  if (buildingInternetCompanyInput) buildingInternetCompanyInput.value = "";
+  if (buildingGasCodeInput) buildingGasCodeInput.value = "";
   await cargarEdificios();
 });
 
 function seleccionarEdificio(id, nombre) {
   selectedBuildingId = id;
   selectedBuildingName = nombre;
-  selectedBuildingLabel.textContent = nombre;
+  if (selectedBuildingLabel) {
+    selectedBuildingLabel.textContent = nombre;
+  }
 
-  // al seleccionar un edificio, ir a la pestaña de UNIDADES
   const tabUnidades = document.getElementById("tab-unidades");
   if (tabUnidades) tabUnidades.checked = true;
 
-  // reset unidad, inquilinos y recibos
   selectedUnitId = null;
   selectedUnitName = null;
   selectedUnitStatus = null;
-  selectedUnitLabel.textContent = "Ninguna";
+  if (selectedUnitLabel) {
+    selectedUnitLabel.textContent = "Ninguna";
+  }
   tenantList.innerHTML = "";
   setTenantFormEnabled(false);
 
@@ -205,7 +327,6 @@ function seleccionarEdificio(id, nombre) {
 
   cargarUnidades(id);
 }
-
 
 // ===== UNIDADES =====
 async function cargarUnidades(buildingId) {
@@ -228,16 +349,112 @@ async function cargarUnidades(buildingId) {
   snapshot.forEach((docSnap) => {
     const data = docSnap.data();
     const estadoTexto = data.estado === "ocupado" ? "[OCUPADO]" : "[LIBRE]";
-    const li = document.createElement("li");
-    li.textContent = `${data.nombreUnidad} (${data.tipoUnidad}) - ${estadoTexto}`;
-    li.style.cursor = "pointer";
+    const codLuz = data.codigoLuz || "s/c";
 
-    li.addEventListener("click", () => {
+    const li = document.createElement("li");
+
+    const infoSpan = document.createElement("span");
+    infoSpan.textContent =
+      `${data.nombreUnidad} (${data.tipoUnidad}) - ${estadoTexto} - Luz: ${codLuz}`;
+    infoSpan.style.cursor = "pointer";
+    infoSpan.addEventListener("click", () => {
       seleccionarUnidad(docSnap.id, data.nombreUnidad, data.estado);
     });
+    li.appendChild(infoSpan);
+
+    // Botón "Editar" unidad con icono
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "btn btn-outline btn-xs";
+    editBtn.innerHTML = `
+      <span class="material-symbols-outlined">edit</span>
+      <span class="btn-label">Editar</span>
+    `;
+    editBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      editarUnidad(docSnap.id, data);
+    });
+    li.appendChild(editBtn);
 
     unitList.appendChild(li);
   });
+}
+
+async function editarUnidad(unitId, dataActual) {
+  if (!selectedBuildingId) {
+    alert("Primero selecciona un inmueble.");
+    return;
+  }
+
+  const nuevoNombre = prompt(
+    "Nuevo nombre o número de unidad:",
+    dataActual.nombreUnidad || ""
+  );
+  if (nuevoNombre === null) return;
+  const nombreTrim = nuevoNombre.trim();
+  if (!nombreTrim) {
+    alert("El nombre de la unidad no puede estar vacío.");
+    return;
+  }
+
+  const nuevoTipo = prompt(
+    "Tipo de unidad (departamento / habitacion / casa completa):",
+    dataActual.tipoUnidad || ""
+  );
+  if (nuevoTipo === null) return;
+  const tipoTrim = nuevoTipo.trim() || dataActual.tipoUnidad;
+
+  const nuevoEstado = prompt(
+    'Estado (libre / ocupado):',
+    dataActual.estado || "libre"
+  );
+  if (nuevoEstado === null) return;
+  const estadoTrim =
+    (nuevoEstado.trim().toLowerCase() === "ocupado") ? "ocupado" : "libre";
+
+  const nuevoCodLuz = prompt(
+    "Código de medidor de luz:",
+    dataActual.codigoLuz || ""
+  );
+  if (nuevoCodLuz === null) return;
+  const codLuzTrim = nuevoCodLuz.trim();
+
+  const nombreLower = nombreTrim.toLowerCase();
+  if (nombreLower !== dataActual.nombreUnidadLower) {
+    const qDup = query(
+      collection(db, "units"),
+      where("buildingId", "==", selectedBuildingId),
+      where("nombreUnidadLower", "==", nombreLower)
+    );
+    const dupSnap = await getDocs(qDup);
+    let existeOtro = false;
+    dupSnap.forEach((d) => {
+      if (d.id !== unitId) existeOtro = true;
+    });
+    if (existeOtro) {
+      alert("Ya existe otra unidad con ese nombre en este inmueble.");
+      return;
+    }
+  }
+
+  const unitRef = doc(db, "units", unitId);
+  await updateDoc(unitRef, {
+    nombreUnidad: nombreTrim,
+    nombreUnidadLower: nombreLower,
+    tipoUnidad: tipoTrim,
+    estado: estadoTrim,
+    codigoLuz: codLuzTrim
+  });
+
+  if (selectedUnitId === unitId) {
+    selectedUnitName = nombreTrim;
+    selectedUnitStatus = estadoTrim;
+    const estadoTexto = estadoTrim === "ocupado" ? "OCUPADO" : "LIBRE";
+    selectedUnitLabel.textContent = `${nombreTrim} (${estadoTexto})`;
+    invoiceUnitLabel.textContent = nombreTrim;
+  }
+
+  await cargarUnidades(selectedBuildingId);
 }
 
 unitForm.addEventListener("submit", async (e) => {
@@ -251,6 +468,9 @@ unitForm.addEventListener("submit", async (e) => {
   const nombreUnidad = unitNameInput.value.trim();
   const tipoUnidad = unitTypeSelect.value;
   const estado = unitStatusSelect.value;
+  const codigoLuz = unitElectricCodeInput
+    ? unitElectricCodeInput.value.trim()
+    : "";
 
   if (!nombreUnidad) return;
 
@@ -273,10 +493,12 @@ unitForm.addEventListener("submit", async (e) => {
     nombreUnidadLower,
     tipoUnidad,
     estado,
+    codigoLuz,
     creadoEn: new Date()
   });
 
   unitNameInput.value = "";
+  if (unitElectricCodeInput) unitElectricCodeInput.value = "";
   await cargarUnidades(selectedBuildingId);
 });
 
@@ -288,11 +510,19 @@ function seleccionarUnidad(id, nombreUnidad, estado) {
   const estadoTexto = estado === "ocupado" ? "OCUPADO" : "LIBRE";
   selectedUnitLabel.textContent = `${nombreUnidad} (${estadoTexto})`;
 
-  // al seleccionar una unidad, ir a la pestaña de INQUILINOS
   const tabInquilinos = document.getElementById("tab-inquilinos");
   if (tabInquilinos) tabInquilinos.checked = true;
 
-  // reset info de inquilino/recibos
+  const staffUnitLabel = document.getElementById("staff-unit-label");
+  if (staffUnitLabel) {
+    staffUnitLabel.textContent = `${nombreUnidad} (${estadoTexto})`;
+  }
+  const currentUnitHidden = document.getElementById("current-unit-id");
+  if (currentUnitHidden) {
+    currentUnitHidden.value = id;
+    currentUnitHidden.dispatchEvent(new Event("change"));
+  }
+
   activeTenantId = null;
   activeTenantName = null;
   invoiceUnitLabel.textContent = nombreUnidad;
@@ -309,7 +539,6 @@ function seleccionarUnidad(id, nombreUnidad, estado) {
   cargarInquilinos(id);
   cargarRecibos(id);
 }
-
 
 // ===== INQUILINOS =====
 async function cargarInquilinos(unitId) {
@@ -346,16 +575,18 @@ async function cargarInquilinos(unitId) {
     const fechaFin = data.fechaFin || "sin fecha fin";
     const estadoText = data.estado || "N/A";
     const monto = Number(data.montoAlquiler || 0);
+    const notas = data.notasContrato ? ` - Notas: ${data.notasContrato}` : "";
 
-    li.textContent =
+    const infoSpan = document.createElement("span");
+    infoSpan.textContent =
       `${data.nombre} - DNI: ${data.documento || "N/A"} - Tel: ${data.telefono || "N/A"} ` +
-      `- Inicio: ${fechaInicio} - Fin: ${fechaFin} - Alquiler: ${monto.toFixed(2)} - Estado: ${estadoText}`;
+      `- Inicio: ${fechaInicio} - Fin: ${fechaFin} - Alquiler: ${monto.toFixed(2)} - Estado: ${estadoText}${notas}`;
+    li.appendChild(infoSpan);
 
-    // clic en inquilino activo -> ir a Recibos
     li.style.cursor = "pointer";
     li.addEventListener("click", () => {
       if (data.estado !== "activo") {
-        alert("Solo los inquilinos activos pueden generar recibos.");
+        alert("Solo los inquilinos activos pueden generar nuevos recibos.");
         return;
       }
       activeTenantId = docSnap.id;
@@ -365,7 +596,57 @@ async function cargarInquilinos(unitId) {
 
       const tabRecibos = document.getElementById("tab-recibos");
       if (tabRecibos) tabRecibos.checked = true;
+
+      cargarRecibos(unitId);
     });
+
+    // Botón "Ver recibos" con icono
+    const viewBtn = document.createElement("button");
+    viewBtn.type = "button";
+    viewBtn.className = "btn btn-info btn-xs";
+    viewBtn.innerHTML = `
+      <span class="material-symbols-outlined">receipt_long</span>
+      <span class="btn-label">Recibos</span>
+    `;
+    viewBtn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await verRecibosDeTenant(docSnap.id, data.nombre);
+    });
+    li.appendChild(viewBtn);
+
+    // Botón "Editar" inquilino con icono
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "btn btn-outline btn-xs";
+    editBtn.innerHTML = `
+      <span class="material-symbols-outlined">edit</span>
+      <span class="btn-label">Editar</span>
+    `;
+    editBtn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await editarInquilino(docSnap.id, data);
+    });
+    li.appendChild(editBtn);
+
+    // Botón "Rescindir contrato" con icono (solo si está activo)
+    if (data.estado === "activo") {
+      const rescBtn = document.createElement("button");
+      rescBtn.type = "button";
+      rescBtn.className = "btn btn-danger btn-xs";
+      rescBtn.innerHTML = `
+        <span class="material-symbols-outlined">block</span>
+        <span class="btn-label">Rescindir</span>
+      `;
+      rescBtn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const ok = confirm(
+          `¿Deseas rescindir el contrato de ${data.nombre}? La unidad quedará libre y el inquilino pasará a histórico.`
+        );
+        if (!ok) return;
+        await rescindirContrato(docSnap.id, unitId);
+      });
+      li.appendChild(rescBtn);
+    }
 
     tenantList.appendChild(li);
 
@@ -389,6 +670,104 @@ async function cargarInquilinos(unitId) {
   }
 }
 
+async function editarInquilino(tenantId, dataActual) {
+  const nuevoNombre = prompt("Nombre completo:", dataActual.nombre || "");
+  if (nuevoNombre === null) return;
+  const nombreTrim = nuevoNombre.trim();
+  if (!nombreTrim) {
+    alert("El nombre no puede quedar vacío.");
+    return;
+  }
+
+  const nuevoDoc = prompt("Documento / DNI:", dataActual.documento || "");
+  if (nuevoDoc === null) return;
+  const docTrim = nuevoDoc.trim();
+
+  const nuevoTel = prompt("Teléfono:", dataActual.telefono || "");
+  if (nuevoTel === null) return;
+  const telTrim = nuevoTel.trim();
+
+  const nuevoEmail = prompt("Email:", dataActual.email || "");
+  if (nuevoEmail === null) return;
+  const emailTrim = nuevoEmail.trim();
+
+  const nuevaFechaInicio = prompt(
+    "Fecha inicio (YYYY-MM-DD):",
+    dataActual.fechaInicio || ""
+  );
+  if (nuevaFechaInicio === null) return;
+  const fiTrim = nuevaFechaInicio.trim();
+
+  const nuevaFechaFin = prompt(
+    "Fecha fin (YYYY-MM-DD):",
+    dataActual.fechaFin || ""
+  );
+  if (nuevaFechaFin === null) return;
+  const ffTrim = nuevaFechaFin.trim();
+
+  const montoStr = prompt(
+    "Monto alquiler mensual:",
+    dataActual.montoAlquiler != null ? String(dataActual.montoAlquiler) : ""
+  );
+  if (montoStr === null) return;
+  const montoNum = parseFloat(montoStr);
+  if (isNaN(montoNum) || montoNum <= 0) {
+    alert("El monto de alquiler debe ser un número mayor a 0.");
+    return;
+  }
+
+  const nuevasNotas = prompt(
+    "Notas del contrato:",
+    dataActual.notasContrato || ""
+  );
+  if (nuevasNotas === null) return;
+  const notasTrim = nuevasNotas.trim();
+
+  const tenantRef = doc(db, "tenants", tenantId);
+  await updateDoc(tenantRef, {
+    nombre: nombreTrim,
+    documento: docTrim,
+    telefono: telTrim,
+    email: emailTrim,
+    fechaInicio: fiTrim,
+    fechaFin: ffTrim,
+    montoAlquiler: montoNum,
+    notasContrato: notasTrim
+  });
+
+  if (activeTenantId === tenantId) {
+    activeTenantName = nombreTrim;
+    invoiceTenantLabel.textContent = nombreTrim;
+  }
+
+  await cargarInquilinos(selectedUnitId);
+}
+
+async function rescindirContrato(tenantId, unitId) {
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const tenantRef = doc(db, "tenants", tenantId);
+  await updateDoc(tenantRef, {
+    estado: "rescendido",
+    fechaFin: hoy
+  });
+
+  const unitRef = doc(db, "units", unitId);
+  await updateDoc(unitRef, {
+    estado: "libre"
+  });
+
+  selectedUnitStatus = "libre";
+  activeTenantId = null;
+  activeTenantName = null;
+  invoiceTenantLabel.textContent = "Ninguno";
+  setInvoiceFormEnabled(false);
+  setTenantFormEnabled(true);
+
+  await cargarInquilinos(unitId);
+  await cargarUnidades(selectedBuildingId);
+}
+
 tenantForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -410,6 +789,7 @@ tenantForm.addEventListener("submit", async (e) => {
   const fechaInicio = tenantStartDateInput.value;
   const fechaFin = tenantEndDateInput ? tenantEndDateInput.value : "";
   const montoAlquiler = tenantRentInput ? parseFloat(tenantRentInput.value) : NaN;
+  const notasContrato = tenantNotesInput ? tenantNotesInput.value.trim() : "";
 
   if (!nombre || !fechaInicio || !fechaFin || isNaN(montoAlquiler)) {
     alert("Nombre, fecha inicio, fecha fin y monto de alquiler son obligatorios.");
@@ -445,11 +825,11 @@ tenantForm.addEventListener("submit", async (e) => {
     fechaInicio,
     fechaFin,
     montoAlquiler,
+    notasContrato,
     estado: "activo",
     creadoEn: new Date()
   });
 
-  // unidad ocupada
   const unitRef = doc(db, "units", selectedUnitId);
   await updateDoc(unitRef, { estado: "ocupado" });
   selectedUnitStatus = "ocupado";
@@ -460,7 +840,6 @@ tenantForm.addEventListener("submit", async (e) => {
   invoiceTenantLabel.textContent = nombre;
   setInvoiceFormEnabled(true);
 
-  // Generar PDF de contrato/resumen
   generarPdfContratoInquilino({
     buildingNombre: selectedBuildingName,
     unitNombre: selectedUnitName,
@@ -470,7 +849,8 @@ tenantForm.addEventListener("submit", async (e) => {
     email,
     fechaInicio,
     fechaFin,
-    montoAlquiler
+    montoAlquiler,
+    notasContrato
   });
 
   tenantNameInput.value = "";
@@ -480,6 +860,7 @@ tenantForm.addEventListener("submit", async (e) => {
   tenantStartDateInput.value = "";
   if (tenantEndDateInput) tenantEndDateInput.value = "";
   if (tenantRentInput) tenantRentInput.value = "";
+  if (tenantNotesInput) tenantNotesInput.value = "";
 
   await cargarInquilinos(selectedUnitId);
   await cargarUnidades(selectedBuildingId);
@@ -510,21 +891,27 @@ async function cargarRecibos(unitId) {
     const li = document.createElement("li");
     const mes = data.mes || "";
     const anio = data.anio || "";
+    const dia = data.dia || "";
     const total = Number(data.total || 0);
     const estado = data.estadoPago || "pendiente";
     const numero = data.numeroRecibo || id.slice(-6);
+    const notasRecibo = data.notasRecibo || "";
 
-    // Texto principal
     const label = document.createElement("span");
-    label.textContent = `#${numero} - ${mes}/${anio} - Total: ${total.toFixed(
+    const fechaTexto = dia ? `${dia}/${mes}/${anio}` : `${mes}/${anio}`;
+    label.textContent = `#${numero} - ${fechaTexto} - Total: ${total.toFixed(
       2
-    )} - Estado: ${estado.toUpperCase()}`;
+    )} - Estado: ${estado.toUpperCase()}` + (notasRecibo ? ` - Notas: ${notasRecibo}` : "");
     li.appendChild(label);
 
-    // Botón PDF (reimprimir siempre)
+    // Botón PDF con icono
     const pdfBtn = document.createElement("button");
     pdfBtn.type = "button";
-    pdfBtn.textContent = "PDF";
+    pdfBtn.className = "btn btn-info btn-xs";
+    pdfBtn.innerHTML = `
+      <span class="material-symbols-outlined">picture_as_pdf</span>
+      <span class="btn-label">PDF</span>
+    `;
     pdfBtn.addEventListener("click", () => {
       const invoiceForPdf = {
         buildingId: data.buildingId,
@@ -536,6 +923,8 @@ async function cargarRecibos(unitId) {
         numeroRecibo: numero,
         mes,
         anio,
+        dia,
+        notasRecibo,
         alquiler: Number(data.alquiler || 0),
         luz: Number(data.luz || 0),
         agua: Number(data.agua || 0),
@@ -547,20 +936,135 @@ async function cargarRecibos(unitId) {
     });
     li.appendChild(pdfBtn);
 
-    // Botón "Marcar pagado" solo si está pendiente
     if (estado === "pendiente") {
+      // Botón "Marcar pagado" con icono
       const payBtn = document.createElement("button");
       payBtn.type = "button";
-      payBtn.textContent = "Marcar pagado";
+      payBtn.className = "btn btn-success btn-xs";
+      payBtn.innerHTML = `
+        <span class="material-symbols-outlined">paid</span>
+        <span class="btn-label">Pagado</span>
+      `;
       payBtn.addEventListener("click", async () => {
         const ok = confirm("¿Marcar este recibo como PAGADO?");
         if (!ok) return;
         await marcarReciboPagado(id);
       });
       li.appendChild(payBtn);
-      li.style.color = "#b91c1c"; // rojo para pendientes
+      li.style.color = "#b91c1c";
     } else {
-      li.style.color = "#065f46"; // verde para pagados
+      li.style.color = "#065f46";
+    }
+
+    invoiceList.appendChild(li);
+  });
+}
+
+async function verRecibosDeTenant(tenantId, tenantNombre) {
+  if (!selectedUnitId) {
+    alert("Primero selecciona una unidad.");
+    return;
+  }
+
+  const tabRecibos = document.getElementById("tab-recibos");
+  if (tabRecibos) tabRecibos.checked = true;
+
+  invoiceUnitLabel.textContent = selectedUnitName || "Unidad";
+  invoiceTenantLabel.textContent = tenantNombre || "Inquilino";
+
+  if (tenantId !== activeTenantId) {
+    setInvoiceFormEnabled(false);
+  } else {
+    setInvoiceFormEnabled(true);
+  }
+
+  invoiceList.innerHTML = "";
+
+  const q = query(
+    collection(db, "invoices"),
+    where("unitId", "==", selectedUnitId),
+    where("tenantId", "==", tenantId)
+  );
+
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    const li = document.createElement("li");
+    li.textContent = "Este inquilino no tiene recibos registrados.";
+    invoiceList.appendChild(li);
+    return;
+  }
+
+  snapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    const id = docSnap.id;
+
+    const li = document.createElement("li");
+
+    const mes = data.mes || "";
+    const anio = data.anio || "";
+    const dia = data.dia || "";
+    const total = Number(data.total || 0);
+    const estado = data.estadoPago || "pendiente";
+    const numero = data.numeroRecibo || id.slice(-6);
+    const notasRecibo = data.notasRecibo || "";
+
+    const label = document.createElement("span");
+    const fechaTexto = dia ? `${dia}/${mes}/${anio}` : `${mes}/${anio}`;
+    label.textContent =
+      `#${numero} - ${fechaTexto} - Total: ${total.toFixed(2)} - Estado: ${estado.toUpperCase()}` +
+      (notasRecibo ? ` - Notas: ${notasRecibo}` : "");
+    li.appendChild(label);
+
+    // Botón PDF con icono
+    const pdfBtn = document.createElement("button");
+    pdfBtn.type = "button";
+    pdfBtn.className = "btn btn-info btn-xs";
+    pdfBtn.innerHTML = `
+      <span class="material-symbols-outlined">picture_as_pdf</span>
+      <span class="btn-label">PDF</span>
+    `;
+    pdfBtn.addEventListener("click", () => {
+      const invoiceForPdf = {
+        buildingId: data.buildingId,
+        buildingNombre: data.buildingNombre,
+        unitId: data.unitId,
+        unitNombre: data.unitNombre,
+        tenantId: data.tenantId,
+        tenantNombre: data.tenantNombre,
+        numeroRecibo: numero,
+        mes,
+        anio,
+        dia,
+        notasRecibo,
+        alquiler: Number(data.alquiler || 0),
+        luz: Number(data.luz || 0),
+        agua: Number(data.agua || 0),
+        otros: Number(data.otros || 0),
+        total,
+        estadoPago: estado
+      };
+      generarPdfRecibo(invoiceForPdf);
+    });
+    li.appendChild(pdfBtn);
+
+    if (estado === "pendiente") {
+      const payBtn = document.createElement("button");
+      payBtn.type = "button";
+      payBtn.className = "btn btn-success btn-xs";
+      payBtn.innerHTML = `
+        <span class="material-symbols-outlined">paid</span>
+        <span class="btn-label">Pagado</span>
+      `;
+      payBtn.addEventListener("click", async () => {
+        const ok = confirm("¿Marcar este recibo como PAGADO?");
+        if (!ok) return;
+        await marcarReciboPagado(id);
+      });
+      li.appendChild(payBtn);
+      li.style.color = "#b91c1c";
+    } else {
+      li.style.color = "#065f46";
     }
 
     invoiceList.appendChild(li);
@@ -573,10 +1077,11 @@ async function marcarReciboPagado(invoiceId) {
     estadoPago: "pagado",
     fechaPago: new Date()
   });
-  await cargarRecibos(selectedUnitId);
+  if (selectedUnitId) {
+    await cargarRecibos(selectedUnitId);
+  }
 }
 
-// generar y guardar recibo
 invoiceForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -589,18 +1094,27 @@ invoiceForm.addEventListener("submit", async (e) => {
 
   const mes = invoiceMonthInput.value;
   const anio = invoiceYearInput.value;
+  const dia = invoiceDayInput ? invoiceDayInput.value.trim() : "";
   const alquiler = parseFloat(rentAmountInput.value) || 0;
   const luz = parseFloat(electricityAmountInput.value) || 0;
   const agua = parseFloat(waterAmountInput.value) || 0;
   const otros = parseFloat(otherAmountInput.value) || 0;
   const estadoPago = invoiceStatusSelect.value;
+  const notasRecibo = invoiceNotesInput ? invoiceNotesInput.value.trim() : "";
 
   if (!mes || !anio) {
     alert("Selecciona mes y año del recibo.");
     return;
   }
 
-  // NO permitir doble recibo para misma unidad, mes y año
+  if (dia) {
+    const diaNum = parseInt(dia, 10);
+    if (isNaN(diaNum) || diaNum < 1 || diaNum > 31) {
+      alert("El día debe estar entre 1 y 31.");
+      return;
+    }
+  }
+
   const qDup = query(
     collection(db, "invoices"),
     where("unitId", "==", selectedUnitId)
@@ -621,7 +1135,7 @@ invoiceForm.addEventListener("submit", async (e) => {
   }
 
   const total = alquiler + luz + agua + otros;
-  const numeroRecibo = "R-" + Date.now(); // identificador simple
+  const numeroRecibo = "R-" + Date.now();
 
   const invoiceData = {
     buildingId: selectedBuildingId,
@@ -633,6 +1147,8 @@ invoiceForm.addEventListener("submit", async (e) => {
     numeroRecibo,
     mes,
     anio,
+    dia,
+    notasRecibo,
     alquiler,
     luz,
     agua,
@@ -644,15 +1160,15 @@ invoiceForm.addEventListener("submit", async (e) => {
 
   await addDoc(collection(db, "invoices"), invoiceData);
 
-  // generar PDF profesional
   generarPdfRecibo(invoiceData);
 
-  // limpiar importes, pero mantener mes/año
   rentAmountInput.value = 0;
   electricityAmountInput.value = 0;
   waterAmountInput.value = 0;
   otherAmountInput.value = 0;
   invoiceStatusSelect.value = "pendiente";
+  if (invoiceDayInput) invoiceDayInput.value = "";
+  if (invoiceNotesInput) invoiceNotesInput.value = "";
 
   await cargarRecibos(selectedUnitId);
 });
@@ -675,7 +1191,6 @@ function generarPdfContratoInquilino(data) {
   const fechaEmision = new Date();
   const fechaStr = fechaEmision.toLocaleDateString("es-ES");
 
-  // encabezado
   docPdf.setFont("helvetica", "bold");
   docPdf.setFontSize(18);
   docPdf.text("CONTRATO DE ALQUILER - RESUMEN", 105, 20, { align: "center" });
@@ -688,7 +1203,6 @@ function generarPdfContratoInquilino(data) {
 
   let y = 40;
 
-  // Inmueble y unidad
   docPdf.setFont("helvetica", "bold");
   docPdf.text("Datos del inmueble", 10, y);
   y += 6;
@@ -696,7 +1210,6 @@ function generarPdfContratoInquilino(data) {
   docPdf.text(`Inmueble: ${data.buildingNombre || ""}`, 12, y); y += 5;
   docPdf.text(`Unidad: ${data.unitNombre || ""}`, 12, y); y += 10;
 
-  // Inquilino
   docPdf.setFont("helvetica", "bold");
   docPdf.text("Datos del inquilino", 10, y);
   y += 6;
@@ -706,14 +1219,20 @@ function generarPdfContratoInquilino(data) {
   docPdf.text(`Teléfono: ${data.telefono || ""}`, 12, y); y += 5;
   docPdf.text(`Email: ${data.email || ""}`, 12, y); y += 10;
 
-  // Fechas y monto
   docPdf.setFont("helvetica", "bold");
   docPdf.text("Condiciones principales", 10, y);
   y += 6;
   docPdf.setFont("helvetica", "normal");
   docPdf.text(`Fecha inicio: ${formatearFechaISO(data.fechaInicio)}`, 12, y); y += 5;
   docPdf.text(`Fecha fin: ${formatearFechaISO(data.fechaFin)}`, 12, y); y += 5;
-  docPdf.text(`Monto mensual de alquiler: ${Number(data.montoAlquiler || 0).toFixed(2)}`, 12, y); y += 10;
+  docPdf.text(`Monto mensual de alquiler: ${Number(data.montoAlquiler || 0).toFixed(2)}`, 12, y); y += 5;
+
+  if (data.notasContrato) {
+    docPdf.text(`Notas de contrato: ${data.notasContrato}`, 12, y, { maxWidth: 180 });
+    y += 10;
+  } else {
+    y += 5;
+  }
 
   docPdf.setFontSize(9);
   docPdf.text(
@@ -750,8 +1269,8 @@ function generarPdfRecibo(data) {
   const fechaEmision = new Date();
   const fechaStr = fechaEmision.toLocaleDateString("es-ES");
   const mesTexto = mesesTexto[data.mes] || data.mes;
+  const diaTexto = data.dia ? String(data.dia).padStart(2, "0") : "";
 
-  // encabezado
   docPdf.setFont("helvetica", "bold");
   docPdf.setFontSize(18);
   docPdf.text("RECIBO DE ALQUILER Y SERVICIOS", 105, 20, { align: "center" });
@@ -761,12 +1280,10 @@ function generarPdfRecibo(data) {
   docPdf.text(`N.º recibo: ${data.numeroRecibo}`, 10, 30);
   docPdf.text(`Fecha de emisión: ${fechaStr}`, 150, 30);
 
-  // línea de separación
   docPdf.line(10, 33, 200, 33);
 
   let y = 40;
 
-  // Datos del inmueble
   docPdf.setFont("helvetica", "bold");
   docPdf.text("Datos del inmueble", 10, y);
   y += 6;
@@ -774,23 +1291,24 @@ function generarPdfRecibo(data) {
   docPdf.text(`Inmueble: ${data.buildingNombre || ""}`, 12, y); y += 5;
   docPdf.text(`Unidad: ${data.unitNombre || ""}`, 12, y); y += 8;
 
-  // Datos del inquilino
   docPdf.setFont("helvetica", "bold");
   docPdf.text("Datos del inquilino", 10, y);
   y += 6;
   docPdf.setFont("helvetica", "normal");
   docPdf.text(`Nombre: ${data.tenantNombre || ""}`, 12, y); y += 8;
 
-  // Periodo
   docPdf.setFont("helvetica", "bold");
   docPdf.text("Periodo facturado", 10, y);
   y += 6;
   docPdf.setFont("helvetica", "normal");
   docPdf.text(`Mes: ${mesTexto}`, 12, y);
   docPdf.text(`Año: ${data.anio}`, 80, y);
+  if (diaTexto) {
+    y += 5;
+    docPdf.text(`Día: ${diaTexto}`, 12, y);
+  }
   y += 10;
 
-  // Detalle de importes (tipo tabla simple)
   docPdf.setFont("helvetica", "bold");
   docPdf.text("Detalle de conceptos", 10, y);
   y += 6;
@@ -818,20 +1336,26 @@ function generarPdfRecibo(data) {
   docPdf.line(10, y, 200, y);
   y += 8;
 
-  // Total
   docPdf.setFont("helvetica", "bold");
   docPdf.text("TOTAL A PAGAR:", 12, y);
   docPdf.text(Number(data.total || 0).toFixed(2), 170, y, { align: "right" });
   y += 10;
 
-  // Estado de pago
   docPdf.setFont("helvetica", "bold");
   docPdf.text("Estado de pago:", 12, y);
   docPdf.setFont("helvetica", "normal");
   docPdf.text(data.estadoPago.toUpperCase(), 60, y);
-  y += 15;
+  y += 10;
 
-  // Pie
+  if (data.notasRecibo) {
+    docPdf.setFont("helvetica", "bold");
+    docPdf.text("Notas del recibo:", 10, y);
+    y += 6;
+    docPdf.setFont("helvetica", "normal");
+    docPdf.text(data.notasRecibo, 12, y, { maxWidth: 180 });
+    y += 10;
+  }
+
   docPdf.setFontSize(9);
   docPdf.setFont("helvetica", "normal");
   docPdf.text(
